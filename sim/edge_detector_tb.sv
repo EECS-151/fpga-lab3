@@ -50,6 +50,8 @@ module edge_detector_tb();
                 end
                 else begin
                     $display("Testbench finished, errors: %d", tests_failed);
+                    if (tests_failed == 0) $display("All tests passed!");
+                    else                   $display("%0d check(s) FAILED", tests_failed);
                 end
             end
             // Output checker thread

@@ -28,6 +28,7 @@ module debouncer_tb();
 
     logic test0_done = 0;
     integer z;
+    integer errors = 0;
     initial begin
         string fsdb_file;
         if (!$value$plusargs("fsdbfile+%s", fsdb_file)) begin
@@ -63,7 +64,7 @@ module debouncer_tb();
         glitchy_signal[0] = 0;
         repeat (`SAMPLE_CNT_MAX * (`PULSE_CNT_MAX + 1)) @(posedge clk);
         #1;
-        assert(debounced_signal[0] == 0) else $display("1st debounced_signal didn't stay low");
+        assert(debounced_signal[0] == 0) else begin $error("1st debounced_signal didn't stay low"); errors = errors + 1; end
 
         test0_done = 1;
 
@@ -81,13 +82,13 @@ module debouncer_tb();
         #1;
 
         if (debounced_signal[1] != 1)
-            $error("Failure 1: The debounced output[1] should have gone high by now %d", $time);
+            begin $error("Failure 1: The debounced output[1] should have gone high by now %d", $time); errors = errors + 1; end
         @(posedge clk); #1;
 
         // While the glitchy signal is high, the debounced output should remain high
         repeat (`SAMPLE_CNT_MAX * 3) begin
             if (debounced_signal[1] != 1)
-                $error("Failure 2: The debounced output[1] should stay high once the counter saturates at %d", $time);
+                begin $error("Failure 2: The debounced output[1] should stay high once the counter saturates at %d", $time); errors = errors + 1; end
             @(posedge clk); #1;
         end
 
@@ -98,19 +99,20 @@ module debouncer_tb();
         repeat (`SAMPLE_CNT_MAX + 1) @(posedge clk); #1;
 
         if (debounced_signal[1] != 0)
-            $error("Failure 3: The debounced output[1] should have falled by now %d", $time);
+            begin $error("Failure 3: The debounced output[1] should have falled by now %d", $time); errors = errors + 1; end
         @(posedge clk); #1;
 
         // Wait for some time to ensure the signal stays low
         repeat (`SAMPLE_CNT_MAX * (`PULSE_CNT_MAX + 1)) begin
             if (debounced_signal[1] != 0)
-                $error("Failure 4: The debounced output[1] should remain low at %d", $time);
+                begin $error("Failure 4: The debounced output[1] should remain low at %d", $time); errors = errors + 1; end
             @(posedge clk); #1;
         end
 
         repeat (10) @(posedge clk);
 
-        $display("Done!");
+        if (errors == 0) $display("All tests passed!");
+        else             $display("%0d check(s) FAILED", errors);
         
         $finish();
     end
@@ -119,7 +121,7 @@ module debouncer_tb();
     initial begin
         while (test0_done == 0) begin
             if (debounced_signal[0] != 0)
-                $error("Failure 0: The debounced output[0] wasn't 0 for the entire test.");
+                begin $error("Failure 0: The debounced output[0] wasn't 0 for the entire test."); errors = errors + 1; end
             @(posedge clk);
         end
     end
