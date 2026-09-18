@@ -13,6 +13,7 @@ module sync_tb;
     // I/O of synchronizer
     logic async_signal;
     logic sync_signal;
+    integer errors = 0;
 
     synchronizer #(.WIDTH(1)) DUT (
         .clk(clk),
@@ -44,18 +45,19 @@ module sync_tb;
             // The #1 is a Verilog oddity that's needed since the sync_signal changes after the rising edge of the clock,
             //   not at the same instant as the rising edge.
             begin
-                repeat (4) @(posedge clk); #1 if (sync_signal !== 1'b1) $error("Check 1 failed");
-                repeat (1) @(posedge clk); #1 if (sync_signal !== 1'b0) $error("Check 2 failed");
-                repeat (3) @(posedge clk); #1 if (sync_signal !== 1'b1) $error("Check 3 failed");
-                repeat (2) @(posedge clk); #1 if (sync_signal !== 1'b0) $error("Check 4 failed");
-                repeat (4) @(posedge clk); #1 if (sync_signal !== 1'b1) $error("Check 5 failed");
+                repeat (4) @(posedge clk); #1 if (sync_signal !== 1'b1) begin $error("Check 1 failed"); errors = errors + 1; end
+                repeat (1) @(posedge clk); #1 if (sync_signal !== 1'b0) begin $error("Check 2 failed"); errors = errors + 1; end
+                repeat (3) @(posedge clk); #1 if (sync_signal !== 1'b1) begin $error("Check 3 failed"); errors = errors + 1; end
+                repeat (2) @(posedge clk); #1 if (sync_signal !== 1'b0) begin $error("Check 4 failed"); errors = errors + 1; end
+                repeat (4) @(posedge clk); #1 if (sync_signal !== 1'b1) begin $error("Check 5 failed"); errors = errors + 1; end
             end
         join
 
         repeat (3) @(posedge clk);  // Wait for a little time and perform the final check again
-        if (sync_signal !== 1'b1) $error("Check 6 failed");
+        if (sync_signal !== 1'b1) begin $error("Check 6 failed"); errors = errors + 1; end
 
-        $display("Test finished");
+        if (errors == 0) $display("All tests passed!");
+        else             $display("%0d check(s) FAILED", errors);
  
         $finish();
     end
