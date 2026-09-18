@@ -82,13 +82,13 @@ module debouncer_tb();
         #1;
 
         if (debounced_signal[1] != 1)
-            begin $error("Failure 1: The debounced output[1] should have gone high by now %d", $time); errors = errors + 1; end
+            begin $error("Failure 1: The debounced output[1] should have gone high by now %0d", $time); errors = errors + 1; end
         @(posedge clk); #1;
 
         // While the glitchy signal is high, the debounced output should remain high
         repeat (`SAMPLE_CNT_MAX * 3) begin
             if (debounced_signal[1] != 1)
-                begin $error("Failure 2: The debounced output[1] should stay high once the counter saturates at %d", $time); errors = errors + 1; end
+                begin $error("Failure 2: The debounced output[1] should stay high once the counter saturates at %0d", $time); errors = errors + 1; end
             @(posedge clk); #1;
         end
 
@@ -99,13 +99,13 @@ module debouncer_tb();
         repeat (`SAMPLE_CNT_MAX + 1) @(posedge clk); #1;
 
         if (debounced_signal[1] != 0)
-            begin $error("Failure 3: The debounced output[1] should have falled by now %d", $time); errors = errors + 1; end
+            begin $error("Failure 3: The debounced output[1] should have falled by now %0d", $time); errors = errors + 1; end
         @(posedge clk); #1;
 
         // Wait for some time to ensure the signal stays low
         repeat (`SAMPLE_CNT_MAX * (`PULSE_CNT_MAX + 1)) begin
             if (debounced_signal[1] != 0)
-                begin $error("Failure 4: The debounced output[1] should remain low at %d", $time); errors = errors + 1; end
+                begin $error("Failure 4: The debounced output[1] should remain low at %0d", $time); errors = errors + 1; end
             @(posedge clk); #1;
         end
 

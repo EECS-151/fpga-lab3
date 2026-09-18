@@ -49,7 +49,7 @@ module edge_detector_tb();
                     $fatal();
                 end
                 else begin
-                    $display("Testbench finished, errors: %d", tests_failed);
+                    $display("Testbench finished, errors: %0d", tests_failed);
                     if (tests_failed == 0) $display("All tests passed!");
                     else                   $display("%0d check(s) FAILED", tests_failed);
                 end
@@ -83,6 +83,6 @@ module edge_detector_tb();
     end
 
     always @(posedge edge_detect_pulse[0] or posedge edge_detect_pulse[1]) begin
-        $display("DEBUG: Detected rising edge at time %d", $time);
+        $display("DEBUG: Detected rising edge at time %0d", $time);
     end
 endmodule
