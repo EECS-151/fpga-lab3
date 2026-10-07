@@ -1,6 +1,7 @@
 SHELL                   := $(shell which bash) -o pipefail
 ABS_TOP                 := $(subst /cygdrive/c/,C:/, $(shell pwd))
 SCRIPTS                 := $(ABS_TOP)/scripts
+FPGA_LEASE              := bash $(SCRIPTS)/fpga_lease.sh
 VIVADO                  ?= vivado # this should be sourced by default 
 VIVADO_OPTS             ?= -nolog -nojournal -mode batch
 FPGA_PART               ?= xczu3eg-sfvc784-2-e
@@ -61,31 +62,23 @@ impl: build/impl/$(TOP).bit
 all: build/impl/$(TOP).bit
 
 program: build/impl/$(TOP).bit $(SCRIPTS)/program.tcl
-	@rm -f $(SCRIPTS)/assign_board_test_log.tmp; \
-	assign-fpga-board > $(SCRIPTS)/assign_board_test_log.tmp 2>&1 & \
-	ASSIGN_PID=$$!; \
-	while ! grep -q "Vivado hw_server port:" $(SCRIPTS)/assign_board_test_log.tmp && ! grep -q "already have an instance" $(SCRIPTS)/assign_board_test_log.tmp; do \
-		sleep 0.1; \
-	done; \
-	if grep -q "already have an instance" $(SCRIPTS)/assign_board_test_log.tmp; then \
-		PORT=$$(cat $(SCRIPTS)/port.tmp); \
-		SERIAL=$$(cat $(SCRIPTS)/serial.tmp); \
-	else \
-		sleep infinity | assign-fpga-board > $(SCRIPTS)/assign_board_log.tmp 2>&1 & \
-		while ! grep -q "Vivado hw_server port:" $(SCRIPTS)/assign_board_log.tmp && ! grep -q "already have an instance" $(SCRIPTS)/assign_board_log.tmp; do \
-			sleep 0.1; \
-		done; \
-		PORT=$$(grep -oP 'Vivado hw_server port: \K\d+' $(SCRIPTS)/assign_board_log.tmp); \
-		SERIAL=$$(grep -oP 'serial \K[A-Z0-9]+' $(SCRIPTS)/assign_board_log.tmp); \
-		echo $$PORT > $(SCRIPTS)/port.tmp; \
-		echo $$SERIAL > $(SCRIPTS)/serial.tmp; \
-		/share/instsww/xilinx/2025.2/Vivado/bin/hw_server -stcp:localhost:$$PORT > /dev/null 2>&1 & \
-	fi; \
-	echo "BOARD SERIAL: $$SERIAL"; \
-	cd build/impl && $(VIVADO) $(VIVADO_OPTS) -source $(SCRIPTS)/program.tcl -tclargs $$PORT
+	@rm -f $(SCRIPTS)/port.tmp $(SCRIPTS)/serial.tmp $(SCRIPTS)/assign_board_log.tmp $(SCRIPTS)/assign_board_test_log.tmp; \
+	PORT=$$($(FPGA_LEASE) start) || exit 1; \
+	cd build/impl && $(VIVADO) $(VIVADO_OPTS) -source $(SCRIPTS)/program.tcl -tclargs $$PORT \
+		|| { echo "Programming failed (see the messages above).  Your board lease:"; $(FPGA_LEASE) status; echo "If the board was unplugged or replaced, run 'make program' again: it tells you what happened.  ('make release' only gives your board up and closes your UART program.)"; exit 1; }
 
-program-force:
-	cd build/impl && $(VIVADO) $(VIVADO_OPTS) -source $(SCRIPTS)/program.tcl
+program-force: $(SCRIPTS)/program.tcl
+	@[ -f build/impl/$(TOP).bit ] || { echo "There is no bitstream yet: run 'make impl' first."; exit 1; }; \
+	rm -f $(SCRIPTS)/port.tmp $(SCRIPTS)/serial.tmp $(SCRIPTS)/assign_board_log.tmp $(SCRIPTS)/assign_board_test_log.tmp; \
+	PORT=$$($(FPGA_LEASE) start) || exit 1; \
+	cd build/impl && $(VIVADO) $(VIVADO_OPTS) -source $(SCRIPTS)/program.tcl -tclargs $$PORT \
+		|| { echo "Programming failed (see the messages above).  Your board lease:"; $(FPGA_LEASE) status; echo "If the board was unplugged or replaced, run 'make program' again: it tells you what happened.  ('make release' only gives your board up and closes your UART program.)"; exit 1; }
+
+release:
+	@$(FPGA_LEASE) stop
+
+board-status:
+	@$(FPGA_LEASE) status
 
 vivado: build
 	cd build && nohup $(VIVADO) </dev/null >/dev/null 2>&1 &
@@ -107,5 +100,5 @@ clean:
 	novas.* \
 	verdiLog 
 
-.PHONY: setup synth impl program program-force vivado all clean verdi %.tb
+.PHONY: setup synth impl program program-force release board-status vivado all clean verdi %.tb
 .PRECIOUS: sim/%.tb sim/%.tbi sim/%.fst sim/%.vpd
